@@ -16,4 +16,4 @@ kwargs.pop('contrast_name')
 
 for masked in datasets.iterate_masked_contrast_maps(
     args.contrast_name, **kwargs):
-    print(masked['contrast_name'])
+    print(masked[0].contrast_name.iloc[0])
