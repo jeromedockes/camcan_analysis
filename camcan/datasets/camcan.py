@@ -469,9 +469,9 @@ def load_camcan_contrast_maps(contrast_name, statistic_type='z_score',
     return Bunch(mask=mask_file, **dataset)
 
 
-def load_masked_contrast_maps(contrast_name, statistic_type='z_score',
-                              data_dir=CAMCAN_DRAGO_STORE_CONTRASTS,
-                              patients_excluded=None, mask_file=None):
+def iterate_masked_contrast_maps(contrast_name, statistic_type='z_score',
+                                 data_dir=CAMCAN_DRAGO_STORE_CONTRASTS,
+                                 patients_excluded=None, mask_file=None):
 
     contrast_maps = load_camcan_contrast_maps(
         contrast_name, statistic_type, data_dir,
@@ -479,7 +479,6 @@ def load_masked_contrast_maps(contrast_name, statistic_type='z_score',
     masker = input_data.NiftiMasker(mask_img=contrast_maps.mask)
     contrast_maps = pd.DataFrame(contrast_maps)
     by_contrast = contrast_maps.groupby('contrast_name')
-    masked_data = []
     masker.fit()
     for contrast_name, contrast_maps in by_contrast:
         masked_file = 'masked_contrasts_{}_{}.csv'.format(
@@ -489,11 +488,20 @@ def load_masked_contrast_maps(contrast_name, statistic_type='z_score',
             contrast_data = pd.read_csv(masked_file)
         else:
             masked_maps = pd.DataFrame(
-                masker.transform(contrast_maps.contrast_map))
+                masker.transform(contrast_maps.contrast_map),
+                index=contrast_maps.index)
             contrast_data = pd.concat((contrast_maps, masked_maps), axis=1)
             contrast_data.to_csv(masked_file, index=False)
-        masked_data.append(contrast_data)
-    return pd.concat(masked_data), masker
+        yield contrast_data, masker
+
+
+def load_masked_contrast_maps(contrast_name, statistic_type='z_score',
+                              data_dir=CAMCAN_DRAGO_STORE_CONTRASTS,
+                              patients_excluded=None, mask_file=None):
+    contrasts, maskers = zip(*iterate_masked_contrast_maps(
+        contrast_name, statistic_type, data_dir,
+        patients_excluded, mask_file))
+    return pd.concat(contrasts), maskers[0]
 
 
 def load_camcan_behavioural(filename_csv,
